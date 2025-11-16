@@ -1,39 +1,46 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '../../constants/theme';
+import { mapFirebaseAuthError } from '../../utils/firebaseErrors';
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { signUp } = useAuth();
 
   const handleSignUp = async () => {
     if (!email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      setError('Please fill in all fields.');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      setError('Passwords do not match.');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long.');
+      setError('Password must be at least 6 characters long.');
       return;
     }
 
     setLoading(true);
+    setError('');
     try {
       await signUp(email, password);
       router.replace('/home');
     } catch (error) {
-      Alert.alert('Sign Up Failed', error.message);
+      setError(mapFirebaseAuthError(error.code));
     } finally {
       setLoading(false);
     }
+  };
+
+  const onInputFocus = () => {
+    setError('');
   };
 
   return (
@@ -49,6 +56,7 @@ export default function SignUpScreen() {
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
+        onFocus={onInputFocus}
       />
       <TextInput
         style={styles.input}
@@ -57,6 +65,7 @@ export default function SignUpScreen() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        onFocus={onInputFocus}
       />
       <TextInput
         style={styles.input}
@@ -65,7 +74,10 @@ export default function SignUpScreen() {
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         secureTextEntry
+        onFocus={onInputFocus}
       />
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <Pressable
         style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}
@@ -123,6 +135,12 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.base * 2,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontFamily: FONT_FAMILY.primary,
+    textAlign: 'center',
+    marginBottom: SIZES.base * 2,
   },
   button: {
     height: 50,
