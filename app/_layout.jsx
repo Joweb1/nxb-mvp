@@ -1,3 +1,4 @@
+import 'text-encoding';
 import React from 'react';
 import { useFonts, Poppins_400Regular, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { AuthProvider } from '../context/AuthContext';
