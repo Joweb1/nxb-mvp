@@ -1,53 +1,135 @@
-> Edited for use in IDX on 07/09/12
+# NXB MVP App
 
-# Welcome to your Expo app 👋
+A modern sports scores and highlights application built with React Native and Expo. This project aims to provide a seamless user experience for tracking football matches, viewing highlights, and managing favorite teams/leagues.
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Features
 
-## Get started
+-   **Authentication Flow:** User login and registration powered by Firebase.
+-   **Custom Bottom Navigation:** A sleek, modern bottom navigation bar with "Highlight", "Favourites", and "For You" tabs, featuring a "pill" design for active tabs.
+-   **Highlight Screen:**
+    -   Dynamic display of match scores and odds with a toggle switch.
+    -   Horizontal date navigation for browsing match schedules.
+    -   Collapsible "Matches" section with league-grouped match listings.
+    -   Detailed match items showing team logos, scores, status, and action buttons (Preview/Summary).
+    -   Integrated ad banner.
+-   **Path Aliases:** Configured for easier module imports.
+-   **Theming:** Consistent dark theme applied throughout the application.
 
-#### Android
+## Technologies Used
 
-Android previews are defined as a `workspace.onStart` hook and started as a vscode task when the workspace is opened/started.
+-   **React Native:** A framework for building native mobile apps using React.
+-   **Expo:** A platform for universal React applications, enabling faster development.
+-   **Expo Router:** File-based routing for Expo and React Native.
+-   **Firebase:** Backend services for authentication.
+-   **@expo/vector-icons:** Customizable vector icons for UI elements.
+-   **expo-image:** Optimized image loading and display.
+-   **@expo-google-fonts/poppins:** Custom font integration.
+-   **babel-plugin-module-resolver:** For path alias resolution.
 
-Note, if you can't find the task, either:
-- Rebuild the environment (using command palette: `IDX: Rebuild Environment`), or
-- Run `npm run android -- --tunnel` command manually run android and see the output in your terminal. The device should pick up this new command and switch to start displaying the output from it.
+## Setup Instructions
 
-In the output of this command/task, you'll find options to open the app in a
+Follow these steps to get the project up and running on your local machine.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Prerequisites
 
-You'll also find options to open the app's developer menu, reload the app, and more.
+Before you begin, ensure you have the following installed:
 
-#### Web
+-   **Node.js:** [LTS version recommended](https://nodejs.org/en/download/)
+-   **npm** (comes with Node.js) or **Yarn**
+-   **Expo CLI:** Install globally using npm or yarn:
+    ```bash
+    npm install -g expo-cli
+    # OR
+    yarn global add expo-cli
+    ```
 
-Web previews will be started and managred automatically. Use the toolbar to manually refresh.
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### 1. Clone the Repository
 
 ```bash
-npm run reset-project
+git clone https://github.com/your-username/nxb-mvp.git # Replace with your repository URL
+cd nxb-mvp
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Install Dependencies
 
-## Learn more
+```bash
+npm install
+# OR
+yarn install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### 3. Configure Firebase
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+This project uses Firebase for authentication. You need to set up your Firebase project and add your configuration.
 
-## Join the community
+1.  Create a new project on the [Firebase Console](https://console.firebase.google.com/).
+2.  Add a web app to your Firebase project to get your configuration details.
+3.  Create a file named `firebaseConfig.js` in the root of your project (if it doesn't exist) and add your Firebase configuration:
 
-Join our community of developers creating universal apps.
+    ```javascript
+    // firebaseConfig.js
+    import { initializeApp } from 'firebase/app';
+    import { getAuth } from 'firebase/auth';
+    import { getFirestore } from 'firebase/firestore'; // If you use Firestore
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    // const db = getFirestore(app); // Uncomment if you use Firestore
+
+    export { auth, app }; // Export db if you uncommented it
+    ```
+
+### 4. Run the Application
+
+You can run the application on an Android emulator/device, iOS simulator/device, or in a web browser.
+
+```bash
+npm start
+# OR
+yarn start
+```
+
+This will open the Expo Developer Tools in your browser. From there, you can:
+
+-   Scan the QR code with the Expo Go app on your physical device.
+-   Run on an Android emulator.
+-   Run on an iOS simulator (macOS only).
+-   Run in a web browser.
+
+## Project Structure
+
+```
+.
+├── app/                  # Expo Router app directory for screens and layouts
+│   ├── (app)/            # Group for authenticated screens (Highlight, Favourites, For You)
+│   ├── (auth)/           # Group for authentication screens (Login, Signup)
+│   └── _layout.jsx       # Root layout for the entire app
+├── assets/               # Static assets like images
+├── components/           # Reusable UI components (e.g., CustomTabBar, MatchItem)
+├── constants/            # Global constants (theme, sizes, colors)
+├── context/              # React Context providers (e.g., AuthContext)
+├── mock/                 # Mock data for development (e.g., matches.js)
+├── utils/                # Utility functions (e.g., firebaseErrors)
+├── babel.config.js       # Babel configuration for module resolution
+├── jsconfig.json         # JavaScript language service configuration
+├── package.json          # Project dependencies and scripts
+└── README.md             # Project documentation
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License.
