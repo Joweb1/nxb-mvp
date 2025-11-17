@@ -21,7 +21,7 @@ export default function LoginScreen() {
     setError('');
     try {
       await signIn(email, password);
-      router.replace('/home');
+      router.replace('/highlight');
     } catch (error) {
       setError(mapFirebaseAuthError(error.code));
     } finally {

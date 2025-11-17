@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sports Scores App</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#ffffff",
+            "background-light": "#f4f4f5",
+            "background-dark": "#121212",
+          },
+          fontFamily: {
+            display: ["Roboto", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "0.5rem",
+          },
+        },
+      },
+    };
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+
+    /* Add cursor pointers for interactive elements */
+    .interactive-star,
+    .date-nav-item,
+    .collapsible-header,
+    nav a,
+    .close-ad-btn,
+    .gemini-btn {
+        cursor: pointer;
+    }
+
+    /* Modal Styles */
+    #gemini-modal {
+        transition: opacity 0.3s ease;
+    }
+    #gemini-modal-content {
+        transition: transform 0.3s ease;
+        transform: translateY(1rem);
+    }
+    #gemini-modal.is-open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    #gemini-modal.is-open #gemini-modal-content {
+        transform: translateY(0);
+    }
+
+    /* Simple loading spinner */
+    .loader {
+      border: 4px solid #f3f3f3; /* Light grey */
+      border-top: 4px solid #ffffff; /* Primary color is now white */
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="mx-auto max-w-md">
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm pt-4">
+<div class="px-4 pb-2">
+<div class="flex items-center justify-center text-center text-sm font-medium text-gray-400 dark:text-gray-500">
+<a class="text-white dark:text-white font-bold pb-2 border-b-2 border-white" href="#">NXB Football</a>
+</div>
+</div>
+<div class="px-4 pb-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<button class="bg-gray-200 dark:bg-zinc-800 h-10 w-10 rounded-full flex items-center justify-center text-gray-800 dark:text-white">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+<button class="bg-gray-200 dark:bg-zinc-800 h-10 w-10 rounded-full flex items-center justify-center text-gray-800 dark:text-white">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-px h-6 bg-gray-300 dark:bg-zinc-700"></div>
+<img alt="Manchester United logo" class="h-8 w-8" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXCoVGMUm1NGhYIzanEHN4bAJNjWeYeWZ05VKdlg30z94X9ZIoJRbfjMyCtxfONofU4wAT-Bic_fAaNTUDUowZbFuFFrWOD-4erj7BpS9JOQ2_bvvffdQFL2zELhifyftodejxZS9NhIVymTkXUnoyphZk0TqW4KZPaUXusEYWO6ih2JCl7Pj0e6UGq-SAjFRaIGwsOivsySL87_bcsU8TFkyILLaxYwKrpcObZXQ8sGaAQ3c86_V6HckzKKwNVdAinjmarR_eM5wO"/>
+<button class="bg-gray-200 dark:bg-zinc-800 h-10 w-10 rounded-full flex items-center justify-center text-gray-800 dark:text-white">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+</header>
+<main class="pb-24">
+<div class="px-4 py-2" id="ad-banner-container">
+<div class="bg-zinc-200 dark:bg-zinc-800 p-4 rounded-lg flex gap-4 relative">
+<div class="flex-shrink-0">
+<div class="w-14 h-14 bg-primary rounded-lg flex items-center justify-center">
+<span class="text-gray-900 font-bold text-lg leading-tight text-center">LS<br/>Bet</span>
+</div>
+</div>
+<div>
+<h2 class="font-bold text-gray-900 dark:text-white">OYA, claim your ₦100K Free Bets!</h2>
+<p class="text-gray-700 dark:text-gray-300 text-sm">We match your first deposit Only on LiveScore Bet</p>
+<p class="text-gray-500 dark:text-gray-400 text-xs mt-1">*Terms apply. Bet responsibly. 18+</p>
+</div>
+<button class="absolute top-2 right-2 text-gray-500 dark:text-gray-400 close-ad-btn" aria-label="Close ad">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+</div>
+</div>
+<div class="px-4 py-3">
+<div class="flex items-center justify-between">
+<button class="flex items-center gap-2 bg-gray-200 dark:bg-zinc-800 px-4 py-2 rounded-full text-sm font-medium text-gray-800 dark:text-white">
+<span>Scores</span>
+<span class="material-symbols-outlined text-base">expand_more</span>
+</button>
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm text-gray-800 dark:text-white">Odds</span>
+<div class="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white dark:bg-zinc-500 border-4 appearance-none cursor-pointer border-gray-300 dark:border-zinc-700 checked:right-0 checked:border-primary" id="toggle" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 dark:bg-zinc-700 cursor-pointer" for="toggle"></label>
+</div>
+</div>
+</div>
+</div>
+<div class="px-4 py-2">
+<div class="flex items-center justify-between text-center text-xs text-gray-500 dark:text-gray-400" id="date-nav-container">
+<div class="flex flex-col items-center p-2 rounded-md date-nav-item">
+<span class="font-bold">LIVE</span>
+</div>
+<div class="flex flex-col items-center p-2 rounded-md date-nav-item">
+<span>THU</span>
+<span>13 NOV</span>
+</div>
+<div class="flex flex-col items-center p-2 rounded-md date-nav-item">
+<span>FRI</span>
+<span>14 NOV</span>
+</div>
+<div class="bg-gray-300 dark:bg-zinc-800 p-2 rounded-md text-gray-900 dark:text-white date-nav-item">
+<span class="font-bold">TODAY</span>
+<span>15 NOV</span>
+</div>
+<div class="flex flex-col items-center p-2 rounded-md date-nav-item">
+<span>SUN</span>
+<span>16 NOV</span>
+</div>
+<div class="flex flex-col items-center p-2 rounded-md date-nav-item">
+<span>MON</span>
+<span>17 NOV</span>
+</div>
+<span class="material-symbols-outlined text-2xl text-gray-600 dark:text-gray-300">calendar_today</span>
+</div>
+</div>
+<div class="px-4 py-3" id="favourites-header">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-900" style="font-variation-settings: 'FILL' 1;">sports_soccer</span>
+</div>
+<h3 class="font-bold text-gray-900 dark:text-white">Matches</h3>
+</div>
+<div class="flex items-center gap-2 text-gray-600 dark:text-gray-400 collapsible-header" aria-controls="favourites-content">
+<span class="material-symbols-outlined text-lg">more_vert</span>
+<span class="material-symbols-outlined text-lg">expand_less</span>
+</div>
+</div>
+</div>
+<div class="bg-gray-100 dark:bg-zinc-900 px-4 py-4 rounded-t-2xl" id="favourites-content">
+<div class="flex items-center gap-4 py-3" 
+     data-team-a="Switzerland" 
+     data-team-b="Sweden" 
+     data-score-a="" 
+     data-score-b="" 
+     data-status="upcoming"
+     data-minute="">
+<span class="text-sm font-medium text-gray-600 dark:text-gray-400">20:45</span>
+<div class="w-px h-10 bg-gray-300 dark:bg-zinc-700"></div>
+<div class="flex-grow">
+<div class="flex items-center gap-3">
+<img alt="Switzerland flag" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuARE7gE0Ros9-oQ1YAwKH0N4iH6vmYdNUXb6wuxeby53pwJVzrSliHlJqo7gV60uP6QPO7WLiyyAAaz5UwdYhT3bSUZivqt4CtTmgrVRpDStF6vUM6zpYieOsfiCX1jK1DrLNLUpIH8ah5eSSDhimQP9A5q-4XSurdmOk5XTKlocSPuvO7qersFS2GDS5O4ccpzpoJgq9okvmQBS5HdogSK6OvR-iouNWLGfnwYDR9AdC45OWZ8Iww0Iw8ilv7g0V4t3rIfjrCZm9HM"/>
+<span class="text-gray-900 dark:text-white">Switzerland</span>
+</div>
+<div class="flex items-center gap-3 mt-2">
+<img alt="Sweden flag" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_KMoI4Tt1nW2qCno5kh272XP5ZY99jcx9zk19e2qayG3-Alit7b6tPi7ptQENIniup5K4mF9fS21eQYDve-larqaFOFgm78biWybClXjFu7mMgpkYSWD7sg8R9NH3s3yXsMlPC5TKJM3AhVaoS_D-rGj972W9tZIFn8padf_ILV8QYabgQKLiZbJyKeMTQrM5Nn_c3OH52UAZO-hvIRDBod0TjzLMje0vch-xlZsz-EDzd33uxMrWDn3v-Vx_tcF4rH7K0yC9qMzr"/>
+<span class="text-gray-900 dark:text-white">Sweden</span>
+</div>
+</div>
+<button class="text-xs font-medium text-primary gemini-btn" data-action="preview">Preview</button>
+<span class="material-symbols-outlined text-primary interactive-star" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<div class="h-px bg-gray-200 dark:bg-zinc-800 my-2"></div>
+<div class="flex items-center justify-between py-3">
+<div class="flex items-center gap-3">
+<img alt="NPFL logo" class="w-6 h-6" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4oSc2WJlmgCZUYbv_ewsaKLejnzx8Oh9IbpUgnIfQoV2eXxgJ4V2OhqZsufQF9ngIOs_RYRzlHBs0umRv5fvfL5PrnqXOQ4mfPUyMBA5z05qqDvKIV9uy-RO-5jrvzV0MXEydZjrsnzkpJD6QQ0NV6rOIBTOp38GB_piRYrcEILw0E__NrAxBM2lxpcAUUDsCDcjoJlW5uswpf4JiA3U-qCoWVwvHcqIapiMHX4-VwobZ8G8RZcZpY6xzv-bJ-3Q7cn06e5VzIZAo"/>
+<div>
+<p class="font-bold text-gray-900 dark:text-white">NPFL</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Nigeria</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 py-3"
+     data-team-a="Bendel Insurance" 
+     data-team-b="Kano Pillars" 
+     data-score-a="1" 
+     data-score-b="2" 
+     data-status="live"
+     data-minute="58'">
+<div class="text-center">
+<span class="text-xs font-bold text-primary">58'</span>
+</div>
+<div class="w-2 h-10 bg-primary rounded-full"></div>
+<div class="flex-grow">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<img alt="Bendel Insurance logo" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjhAAtEa4_2B6Qy6Yt4r_Ll_YKLsWIS7pCqKJpe7vGS8txpvubWxKsFe_eewD7y-aZy2kbP1s6NidKT9vx0uFExLzU_WlOzo2GCC2-W9K64EuW8C77u0baEBVn9ykGicwui2KacbqfHROJkg2aSYM2OxqfH8aLOlGh6whNWw4nxqGZW5npJY8Mv4uhcrDCWGsQD3NFuw0CrDXRBAyKQAC1Zf0_b6EVpX8BxNbH1D61vvqGottLJMeMtXz51gwX1jI06sKDJIYu5pgl"/>
+<span class="text-gray-900 dark:text-white">Bendel Insurance</span>
+</div>
+<span class="font-bold text-gray-900 dark:text-white">1</span>
+</div>
+<div class="flex items-center justify-between mt-2">
+<div class="flex items-center gap-3">
+<img alt="Kano Pillars logo" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCedpDuCj9Nh10O_77N4F9txL1fS4ZwGYGg5AXlUi1ZXi4vpNfeQ0pKgl87VtYx7FsE8dRNpO_n1z_Ac1Imehbagu7IPoCuBkjzr2s_ZcW-R5IXhtjIb11r12C7qb82TxXWZO7UVB1SlVRS_77SbwVEmSaMydWi7sZ-akNH_KwAMftxq99uQufmW4yKmUMGIpatooAtO_VgtRH2dWH1I8swgPF--00oQs0vfEmb-y-WceFQnaEimwlU4M8Z4baT2-U3pQbn5w3FFvzw"/>
+<span class="text-gray-900 dark:text-white">Kano Pillars</span>
+</div>
+<span class="font-bold text-gray-900 dark:text-white">2</span>
+</div>
+</div>
+<button class="text-xs font-medium text-primary gemini-btn" data-action="summary">Summary</button>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500 interactive-star">star</span>
+</div>
+<div class="h-px bg-gray-200 dark:bg-zinc-800 my-2"></div>
+<div class="flex items-center justify-between py-3">
+<div class="flex items-center gap-3">
+<div class="w-6 h-6 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center">
+<img alt="World Cup trophy icon" class="w-4 h-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNrqVZUUEey_bH-88-tgMCKhc1Gpb-coM7phPrZR4bxZvD0p6ZSeviiS41ln6w4hLHFsV1uLr-2eSX1fALhQzaGMpsCmpuRHGPlJWG1WARQIHorfTjkD6u3ygPqMF-bThY70_er80fJYOPLDRxHULOA_4Wzh3mEkvIsNTu44MkTBtE5YtqWGJcQoBtXqC4tdpCS0REw3qPanMzlld0LmUbpl-2nhQbaFXLwp2-7hf1dAp1KzdH4Baw2lIJAejd106hLOfbPAAi05Ka"/>
+</div>
+<div>
+<p class="font-bold text-gray-900 dark:text-white">World Cup Qualifiers: UEFA</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">UEFA Qualification: 1st Round: Group B</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 py-3"
+     data-team-a="Slovenia" 
+     data-team-b="Kosovo" 
+     data-score-a="" 
+     data-score-b="" 
+     data-status="upcoming"
+     data-minute="">
+<span class="text-sm font-medium text-gray-600 dark:text-gray-400">20:45</span>
+<div class="w-px h-10 bg-gray-300 dark:bg-zinc-700"></div>
+<div class="flex-grow">
+<div class="flex items-center gap-3">
+<img alt="Slovenia logo" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCV8trY7Fujv8_EBc2i6FclNApw2BdChH8qBGSlD_Uww1wb6yMLsb6HSpc18ox5sA5TIzGl79EXc0Z64ewk7gL8JWw5yWZ21dFrFamlnjJIwB3gI6l83_WDXiMlyBTSBNvcE92BrJksCPj0Z9aIhcKo6e_8P7R1EQ6KyeLUsX7PuM-I-ujW9ZRPJWLwyvPivxHwzCar-T_8ReFB629sYedxf0emQfA-j4K5UnmDwn1khalJqwtIVxFuOIZhtTnEjC8bXEK1X6-NmMbj"/>
+<span class="text-gray-900 dark:text-white">Slovenia</span>
+</div>
+<div class="flex items-center gap-3 mt-2">
+<img alt="Kosovo logo" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAS9XmVigMSjDaRt-UgWnqfh9paZ1BgnrMvbmh8nHC3YtkOdlyYPZjqohm84a1Xm9CO3SjMQ98CIzJZlu9ySYNQiLNmI3o97GiY6UhomDvAqEjgDvyRvkcBH3688D_fNMXa2qQCr5jMoxheq-C-LRHPvzpFeLvqgc2YGrAW1Q_aAJEc67NZ7tzWlI99i0eqUbk4zjn_QqzQ5_Ozn7LyD1JK9r2L_QI47nTrK678lga9Dq0mVVYM1Kr1iAhe3GHje5u7acJJUaZGM8Jk"/>
+<span class="text-gray-900 dark:text-white">Kosovo</span>
+</div>
+</div>
+<button class="text-xs font-medium text-primary gemini-btn" data-action="preview">Preview</button>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500 interactive-star">star</span>
+</div>
+<div class="flex items-center gap-4 py-3"
+     data-team-a="Switzerland" 
+     data-team-b="Sweden" 
+     data-score-a="" 
+     data-score-b="" 
+     data-status="upcoming"
+     data-minute="">
+<span class="text-sm font-medium text-gray-600 dark:text-gray-400">20:45</span>
+<div class="w-px h-10 bg-gray-300 dark:bg-zinc-700"></div>
+<div class="flex-grow">
+<div class="flex items-center gap-3">
+<img alt="Switzerland flag" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVZX8EmFPvKL3frOehokt43RkeB0zpqdd3uiynz5Oka4CQf8B_YpQuq1Hh0eAhEa7uKFTBrHMr_as51DpJmM1BJNoQtB4HGd5eDNmsu0uZOTw6RurY8LXhpvDZlbVULqnPAbhG4lNgOPXwMBvJmS0PdLFr9_r7eoVpjQo72xCyUKcUN1Atg24RpN9TdmZnEsbyqc4J2sqZj8ZWJbxmHdZYc6MT8qJAKecGs1w-VJ9c9NiNhMJD-Wsie2yZ7K4chGwEwWOHFSw1bHbj"/>
+<span class="text-gray-900 dark:text-white">Switzerland</span>
+</div>
+<div class="flex items-center gap-3 mt-2">
+<img alt="Sweden flag" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNXb1znWcf1DrtSSHuyD_LsSTUCrmnl1vapgbWqVF7GLUSknrdIRztm1rBW5a2jO3pmV2eJAu_3HCbF4PHNAuGq2c9MXhQy3wHQU-id6A4J0POkzeA6YmyIMh8cmFUNh5dlAf9imsVufkhbyMFkc4WuBXw7gyZo0v7vmwuULTkML_OJkrH5reECOgypQ6NqJ-aEFraCZAYrFs7xhNcZUqgd42J97UqdC__ZoCzrqkxB4zXXtqUdnHc-wVaG4ENd6u29Q3dQTrccFYc"/>
+<span class="text-gray-900 dark:text-white">Sweden</span>
+</div>
+</div>
+<button class="text-xs font-medium text-primary gemini-btn" data-action="preview">Preview</button>
+<span class="material-symbols-outlined text-primary interactive-star" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<div class="h-px bg-gray-200 dark:bg-zinc-800 my-2"></div>
+<div class="flex items-center justify-between py-3">
+<div class="flex items-center gap-3">
+<div class="w-6 h-6 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center">
+<img alt="World Cup trophy icon" class="w-4 h-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlFodGwvcJ1RK76XURrmyu35zQpmG_Dz5qfeRo8N8R4o7znYP3udARHEYp1z5utcF2PVFEmK3jQ4-FCdOIx3y16HgRUZeHjb-48cW_QgFJ8npPKmd1dWq8HmGwmWRg8gEG4ijuKWleu_A6bsAdCPR0AfErtgnSC4mB4IROcZ7c32jlhhRV32vCZ7YdWR9Ymh1MxElBGprFQdWOKlxZH6uaksWaQCCRg__mUh0qU7eNqp4db0_B0tgtoofnukjB5AKDV7B1qw2WDKup"/>
+</div>
+<div>
+<p class="font-bold text-gray-900 dark:text-white">World Cup Qualifiers: UEFA</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">UEFA Qualification: 1st Round: Group C</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 py-3"
+     data-team-a="Denmark" 
+     data-team-b="Belarus" 
+     data-score-a="" 
+     data-score-b="" 
+     data-status="upcoming"
+     data-minute="">
+<span class="text-sm font-medium text-gray-600 dark:text-gray-400">20:45</span>
+<div class="w-px h-10 bg-gray-300 dark:bg-zinc-700"></div>
+<div class="flex-grow">
+<div class="flex items-center gap-3">
+<img alt="Denmark logo" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMYC47aIZGY3OHPrTmLSK49MkxJjWN1wjnTQAKd553g5p-ovHim1x77QktkJ7NwBIjuHDUNOMp5txEVjSRSjzRy9O5sG7ecDttRXAz5vqLQcyxAER9Zsmxo1XbbDW7AMI6N7BTm866gVGVXD326-5rhNOSb6klT-LB4BVDsbkkReSiaCB6nR7GWynRsTTwhoZpFNlY2yWsQyMn6whdQn1Lfu2IL5LOuV2ogTwXbGKb3cwLU3nq65JGB7FS7o8s1DF1GiDDpUssW0HB"/>
+<span class="text-gray-900 dark:text-white">Denmark</span>
+</div>
+<div class="flex items-center gap-3 mt-2">
+<img alt="Belarus logo" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCffg_vtEWx1YC-P7NiEB9Qj0c_AfI58wdoquk-sRvn-LpxGqm1NiL_jCjVrqJ6yIimxLSGa6e-qPTzSbF0P902rDERRZTnacSrlrquIP6zelETaBko4PklozrifrCsbfv_iMbqxd8hEW-asBispuc0L39dl4ecgVob0NTw08Hmvip70pt8M-HjpeVpE02zIJnMyyqti6sSgYiZ6N--6i7ifigizfMJ3ZgppEOQ_9V7WoSSBYasU3uklP_4H_EKxRFaBp5nOj9g_xkT"/>
+<span class="text-gray-900 dark:text-white">Belarus</span>
+</div>
+</div>
+<button class="text-xs font-medium text-primary gemini-btn" data-action="preview">Preview</button>
+<span class="material-symbols-outlined text-gray-400 dark:text-gray-500 interactive-star">star</span>
+</div>
+</div>
+</main>
+<nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-gray-100 dark:bg-zinc-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-zinc-800">
+<div class="flex justify-around items-center h-20">
+<a class="flex flex-col items-center gap-1" href="#">
+<div class="bg-gray-800 dark:bg-white text-white dark:text-black rounded-full px-6 py-2 flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">sports_soccer</span>
+<span class="text-sm font-medium">Football</span>
+</div>
+</a>
+<a class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" href="#">
+<span class="material-symbols-outlined">star</span>
+<span class="text-xs">Favourites</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-xs">For You</span>
+</a>
+</div>
+</nav>
+</div>
+
+<div id="gemini-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none">
+  <div id="gemini-modal-content" class="bg-white dark:bg-zinc-800 rounded-lg shadow-xl w-full max-w-sm">
+    <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-zinc-700">
+      <h3 id="gemini-modal-title" class="text-lg font-medium text-gray-900 dark:text-white">Match Preview</h3>
+      <button id="gemini-modal-close" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    
+    <div class="p-6">
+      <div id="gemini-modal-body" class="text-gray-700 dark:text-gray-300 text-sm">
+        </div>
+      <div id="gemini-loading" class="hidden items-center justify-center py-8">
+        <div class="loader"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  // --- 1. Close Ad Banner ---
+  const adBannerContainer = document.getElementById('ad-banner-container');
+  const adCloseButton = adBannerContainer.querySelector('.close-ad-btn');
+  if (adCloseButton && adBannerContainer) {
+    adCloseButton.addEventListener('click', () => {
+      adBannerContainer.style.display = 'none';
+    });
+  }
+
+  // --- 2. Toggle Favourite (Star) Icons ---
+  const gameStars = document.querySelectorAll('.interactive-star');
+  gameStars.forEach(star => {
+    star.addEventListener('click', () => {
+      // Check if it's already favorited (has text-primary)
+      if (star.classList.contains('text-primary')) {
+        star.classList.remove('text-primary');
+        star.classList.add('text-gray-400', 'dark:text-gray-500');
+        star.style.fontVariationSettings = "'FILL' 0";
+      } else {
+        star.classList.add('text-primary');
+        star.classList.remove('text-gray-400', 'dark:text-gray-500');
+        star.style.fontVariationSettings = "'FILL' 1";
+      }
+    });
+  });
+
+  // --- 3. Collapse "My Favourites" Section ---
+  const favHeader = document.getElementById('favourites-header');
+  const favControls = favHeader.querySelector('.collapsible-header');
+  const favContent = document.getElementById('favourites-content');
+  const collapseIcon = favControls.querySelector('.material-symbols-outlined:last-child'); // expand_less
+
+  if (favControls && favContent && collapseIcon) {
+    favControls.addEventListener('click', () => {
+      if (favContent.style.display === 'none') {
+        favContent.style.display = 'block';
+        collapseIcon.textContent = 'expand_less';
+      } else {
+        favContent.style.display = 'none';
+        collapseIcon.textContent = 'expand_more';
+      }
+    });
+  }
+
+  // --- 4. Date Navigation ---
+  const dateNavContainer = document.getElementById('date-nav-container');
+  const dateNavItems = dateNavContainer.querySelectorAll('.date-nav-item');
+
+  dateNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+      // Reset all items to inactive
+      dateNavItems.forEach(i => {
+        i.classList.remove('bg-gray-300', 'dark:bg-zinc-800', 'text-gray-900', 'dark:text-white');
+        i.classList.add('text-gray-500', 'dark:text-gray-400');
+      });
+
+      // Set clicked item to active
+      item.classList.add('bg-gray-300', 'dark:bg-zinc-800', 'text-gray-900', 'dark:text-white');
+      item.classList.remove('text-gray-500', 'dark:text-gray-400');
+    });
+  });
+
+  // --- 5. Bottom Navigation ---
+  const navLinks = document.querySelectorAll('nav a');
+  
+  // Define the HTML for active and inactive states
+  const navStates = {
+    "Football": {
+      icon: "sports_soccer",
+      inactive: `<span class="material-symbols-outlined">sports_soccer</span><span class="text-xs">Football</span>`,
+      active: `<div class="bg-gray-800 dark:bg-white text-white dark:text-black rounded-full px-6 py-2 flex items-center gap-2">
+                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">sports_soccer</span>
+                 <span class="text-sm font-medium">Highlight</span>
+               </div>`
+    },
+    "Favourites": {
+      icon: "star",
+      inactive: `<span class="material-symbols-outlined">star</span><span class="text-xs">Favourites</span>`,
+      active: `<div class="bg-gray-800 dark:bg-white text-white dark:text-black rounded-full px-6 py-2 flex items-center gap-2">
+                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+                 <span class="text-sm font-medium">Favourites</span>
+               </div>`
+    },
+    "For You": {
+      icon: "receipt_long",
+      inactive: `<span class="material-symbols-outlined">receipt_long</span><span class="text-xs">For You</span>`,
+      active: `<div class="bg-gray-800 dark:bg-white text-white dark:text-black rounded-full px-6 py-2 flex items-center gap-2">
+                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+                 <span class="text-sm font-medium">For You</span>
+               </div>`
+    }
+  };
+
+  navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault(); // Stop the href="#"
+      
+      // Find the text label of the clicked link
+      const label = link.querySelector('.text-xs, .text-sm')?.textContent.trim();
+      
+      if (label && navStates[label]) {
+        // Reset all links to inactive
+        navLinks.forEach(l => {
+          const lLabel = l.querySelector('.text-xs, .text-sm')?.textContent.trim();
+          if (lLabel && navStates[lLabel]) {
+            l.innerHTML = navStates[lLabel].inactive;
+            l.classList.add('text-gray-500', 'dark:text-gray-400');
+          }
+        });
+        
+        // Set the clicked link to active
+        link.innerHTML = navStates[label].active;
+        link.classList.remove('text-gray-500', 'dark:text-gray-400');
+      }
+    });
+  });
+
+  // --- 6. Gemini API Integration ---
+  const modal = document.getElementById('gemini-modal');
+  const modalTitle = document.getElementById('gemini-modal-title');
+  const modalBody = document.getElementById('gemini-modal-body');
+  const modalLoading = document.getElementById('gemini-loading');
+  const modalClose = document.getElementById('gemini-modal-close');
+  const geminiButtons = document.querySelectorAll('.gemini-btn');
+
+  const apiKey = ""; // API key will be injected by the environment
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+  const openModal = () => {
+    modal.classList.add('is-open');
+  };
+
+  const closeModal = () => {
+    modal.classList.remove('is-open');
+  };
+
+  // Close modal when clicking the close button or the background overlay
+  modalClose.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeModal();
+    }
+  });
+
+  // Function to call Gemini API with exponential backoff
+  async function callGeminiApi(prompt, retries = 3, delay = 1000) {
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      systemInstruction: {
+        parts: [{ text: "You are a helpful assistant for a sports app. Your responses should be concise, engaging, and in the style of a sports analyst or reporter. Keep responses to one or two short paragraphs." }]
+      }
+    };
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        if ((response.status === 429 || response.status >= 500) && retries > 0) {
+          // Do not log retry attempts to the console
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return callGeminiApi(prompt, retries - 1, delay * 2);
+        } else {
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      const result = await response.json();
+      const candidate = result.candidates?.[0];
+
+      if (candidate && candidate.content?.parts?.[0]?.text) {
+        return candidate.content.parts[0].text;
+      } else {
+        throw new Error('No content returned from API.');
+      }
+    } catch (error) {
+      console.error('Gemini API call failed:', error);
+      return `Sorry, I couldn't generate a response right now. Please try again later.`;
+    }
+  }
+
+  // Handle Gemini button clicks
+  geminiButtons.forEach(button => {
+    button.addEventListener('click', async (e) => {
+      const matchElement = e.target.closest('[data-team-a]');
+      if (!matchElement) return;
+
+      const { teamA, teamB, scoreA, scoreB, status, minute, action } = matchElement.dataset;
+
+      let prompt = '';
+      let title = '';
+
+      if (action === 'preview') {
+        title = 'Match Preview';
+        prompt = `Write a short, engaging one-paragraph preview for an upcoming football match in Nigeria between ${teamA} and ${teamB}. Do not predict a score.`;
+      } else if (action === 'summary') {
+        title = 'Match Summary';
+        prompt = `Write a short, exciting one-paragraph summary for a live football match in the NPFL. It's the ${minute} minute and ${teamA} is playing ${teamB}. The score is ${teamA} ${scoreA}, ${teamB} ${scoreB}. Describe the atmosphere or what this scoreline implies.`;
+      }
+
+      // Show modal in loading state
+      modalTitle.textContent = title;
+      modalBody.innerHTML = '';
+      modalLoading.style.display = 'flex';
+      openModal();
+
+      // Call API and display result
+      const resultText = await callGeminiApi(prompt);
+      
+      modalLoading.style.display = 'none';
+      // Convert markdown-like newlines to <br> tags for HTML
+      modalBody.innerHTML = resultText.replace(/\n/g, '<br><br>');
+    });
+  });
+
+});
+</script>
+
+</body></html>

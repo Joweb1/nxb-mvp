@@ -31,7 +31,7 @@ export default function SignUpScreen() {
     setError('');
     try {
       await signUp(email, password);
-      router.replace('/home');
+      router.replace('/highlight');
     } catch (error) {
       setError(mapFirebaseAuthError(error.code));
     } finally {
