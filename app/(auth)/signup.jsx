@@ -4,6 +4,7 @@ import { Link, router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { mapFirebaseAuthError } from '../../utils/firebaseErrors';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signUp } = useAuth();
+  const { isTablet } = useResponsive();
 
   const handleSignUp = async () => {
     if (!email || !password || !confirmPassword) {
@@ -45,59 +47,61 @@ export default function SignUpScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <Text style={styles.subtitle}>Start your journey with us</Text>
+      <View style={[styles.content, isTablet && styles.contentTablet]}>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Start your journey with us</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor={COLORS.text}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        onFocus={onInputFocus}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor={COLORS.text}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        onFocus={onInputFocus}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm Password"
-        placeholderTextColor={COLORS.text}
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        onFocus={onInputFocus}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor={COLORS.text}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          onFocus={onInputFocus}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor={COLORS.text}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          onFocus={onInputFocus}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
+          placeholderTextColor={COLORS.text}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          onFocus={onInputFocus}
+        />
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <Pressable
-        style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}
-        onPress={handleSignUp}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.buttonText}>Sign Up</Text>
-        )}
-      </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}
+          onPress={handleSignUp}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Sign Up</Text>
+          )}
+        </Pressable>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Already have an account? </Text>
-        <Link href="/login" asChild>
-          <Pressable>
-            <Text style={styles.link}>Sign In</Text>
-          </Pressable>
-        </Link>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <Link href="/login" asChild>
+            <Pressable>
+              <Text style={styles.link}>Sign In</Text>
+            </Pressable>
+          </Link>
+        </View>
       </View>
     </View>
   );
@@ -107,8 +111,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: SIZES.padding,
     backgroundColor: COLORS.background,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 500,
+  },
+  contentTablet: {
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   title: {
     fontSize: SIZES.h1,

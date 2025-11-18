@@ -4,6 +4,7 @@ import { Link, router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { mapFirebaseAuthError } from '../../utils/firebaseErrors';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -11,6 +12,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signIn } = useAuth();
+  const { isTablet } = useResponsive();
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -35,50 +37,52 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back</Text>
-      <Text style={styles.subtitle}>Sign in to continue</Text>
+      <View style={[styles.content, isTablet && styles.contentTablet]}>
+        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.subtitle}>Sign in to continue</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor={COLORS.text}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        onFocus={onInputFocus}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor={COLORS.text}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        onFocus={onInputFocus}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor={COLORS.text}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          onFocus={onInputFocus}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor={COLORS.text}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          onFocus={onInputFocus}
+        />
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <Pressable
-        style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}
-        onPress={handleSignIn}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.buttonText}>Sign In</Text>
-        )}
-      </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}
+          onPress={handleSignIn}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Sign In</Text>
+          )}
+        </Pressable>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Don't have an account? </Text>
-        <Link href="/signup" asChild>
-          <Pressable>
-            <Text style={styles.link}>Sign Up</Text>
-          </Pressable>
-        </Link>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Link href="/signup" asChild>
+            <Pressable>
+              <Text style={styles.link}>Sign Up</Text>
+            </Pressable>
+          </Link>
+        </View>
       </View>
     </View>
   );
@@ -87,9 +91,18 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
     padding: SIZES.padding,
     backgroundColor: COLORS.background,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 500,
+  },
+  contentTablet: {
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   title: {
     fontSize: SIZES.h1,

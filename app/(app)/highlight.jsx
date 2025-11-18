@@ -1,21 +1,195 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Switch, Animated, Dimensions, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONT_FAMILY, SIZES } from '@/constants/theme';
+import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '@/constants/theme';
 import { mockMatches } from '@/mock/matches';
 import MatchItem from '@/components/MatchItem';
 import { Image } from 'expo-image';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useAuth } from '@/context/AuthContext';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const ITEM_WIDTH = 70;
+const ITEM_MARGIN = 4;
+const FULL_ITEM_WIDTH = ITEM_WIDTH + ITEM_MARGIN * 2;
+
+const DateSelector = ({ selectedDate, setSelectedDate, liveAnimation }) => {
+  const [dates, setDates] = React.useState([]);
+  const [containerWidth, setContainerWidth] = React.useState(0);
+  const scrollViewRef = React.useRef(null);
+
+  const isSameDay = (date1, date2) => {
+      if (!date1 || !date2) return false;
+      return date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate();
+    };
+
+  React.useEffect(() => {
+    const today = new Date();
+    const datesArray = [];
+    for (let i = -30; i <= 30; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      datesArray.push(date);
+    }
+    setDates(datesArray);
+  }, []);
+
+  const todayIndex = React.useMemo(() => dates.findIndex(d => isSameDay(d, new Date())), [dates]);
+
+  const horizontalPadding = (containerWidth / 2) - (FULL_ITEM_WIDTH / 2);
+
+  const onLayout = (event) => {
+    setContainerWidth(event.nativeEvent.layout.width);
+  };
+
+  React.useEffect(() => {
+    let timeoutId;
+    if (scrollViewRef.current && dates.length > 0 && containerWidth > 0 && todayIndex !== -1) {
+      const initialOffset = todayIndex * FULL_ITEM_WIDTH;
+      timeoutId = setTimeout(() => {
+        if (scrollViewRef.current) {
+          scrollViewRef.current.scrollTo({ x: initialOffset, animated: false });
+        }
+      }, 100);
+    }
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [dates, containerWidth, todayIndex]);
+
+  const handleScroll = (event) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / FULL_ITEM_WIDTH);
+    if (dates[index] && !isSameDay(selectedDate, dates[index])) {
+      setSelectedDate(dates[index]);
+    }
+  };
+
+  const handleDatePress = (index) => {
+    if (scrollViewRef.current) {
+      const offset = index * FULL_ITEM_WIDTH;
+      scrollViewRef.current.scrollTo({ x: offset, animated: true });
+    }
+  };
+
+  const getDayString = (date) => {
+    if (isSameDay(date, new Date())) return 'TODAY';
+    return date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+  };
+
+  return (
+    <View style={styles.dateNavContainer}>
+      <TouchableOpacity style={styles.liveButton}>
+        <View style={styles.liveDot} />
+        <Animated.Text style={[styles.dateNavTextBold, styles.liveText, { opacity: liveAnimation }]}>
+          LIVE
+        </Animated.Text>
+      </TouchableOpacity>
+      <View style={{ flex: 1 }} onLayout={onLayout}>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: horizontalPadding }}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          snapToInterval={FULL_ITEM_WIDTH}
+          decelerationRate="fast"
+          style={styles.dateNavScrollView}
+        >
+          {dates.map((date, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.dateNavItem}
+              onPress={() => handleDatePress(index)}
+            >
+              <Text style={isSameDay(date, selectedDate) ? styles.dateNavTextBold : styles.dateNavText}>
+                {getDayString(date)}
+              </Text>
+              <Text style={isSameDay(date, selectedDate) ? styles.dateNavTextBold : styles.dateNavText}>
+                {date.getDate()} {date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <View style={styles.highlightMarker} pointerEvents="none" />
+      </View>
+      <TouchableOpacity style={styles.calendarButton} onPress={() => handleDatePress(todayIndex)}>
+        <MaterialCommunityIcons name="calendar-today" size={24} color={COLORS.text} />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const HighlightScreen = () => {
   const [adVisible, setAdVisible] = React.useState(true);
   const [oddsEnabled, setOddsEnabled] = React.useState(false);
   const [matchesCollapsed, setMatchesCollapsed] = React.useState(false);
+  const { isTablet } = useResponsive();
+  const [selectedDate, setSelectedDate] = React.useState(new Date());
+  const [menuVisible, setMenuVisible] = React.useState(false);
+  const [logoutPopupVisible, setLogoutPopupVisible] = React.useState(false);
+  const { logOut } = useAuth();
+
+  const liveAnimation = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(liveAnimation, {
+          toValue: 0.5,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(liveAnimation, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [liveAnimation]);
+
+  const menuAnimation = React.useRef(new Animated.Value(0)).current;
+  const popupAnimation = React.useRef(new Animated.Value(0)).current;
+
+  const toggleMenu = (visible) => {
+    setMenuVisible(visible);
+    Animated.timing(menuAnimation, {
+      toValue: visible ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const toggleLogoutPopup = (visible) => {
+    setLogoutPopupVisible(visible);
+    Animated.timing(popupAnimation, {
+      toValue: visible ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleLogout = () => {
+    toggleMenu(false);
+    toggleLogoutPopup(true);
+  };
+
+  const confirmLogout = () => {
+    logOut();
+    toggleLogoutPopup(false);
+  };
 
   const Header = () => (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        <TouchableOpacity style={styles.headerButton}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => toggleMenu(true)}>
           <MaterialCommunityIcons name="dots-horizontal" size={24} color={COLORS.text} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerButton}>
@@ -40,7 +214,7 @@ const HighlightScreen = () => {
       <View style={styles.adBanner}>
         <View style={styles.adContent}>
           <View style={styles.adLogo}>
-            <Text style={styles.adLogoText}>LS{"\n"}Bet</Text>
+            <Text style={styles.adLogoText}>NXB{"\n"}Bet</Text>
           </View>
           <View style={styles.adTextContainer}>
             <Text style={styles.adTitle}>OYA, claim your ₦100K Free Bets!</Text>
@@ -53,39 +227,6 @@ const HighlightScreen = () => {
         </TouchableOpacity>
       </View>
     )
-  );
-
-  const DateSelector = () => (
-    <View style={styles.dateNavContainer}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateNavScrollView}>
-        <TouchableOpacity style={styles.dateNavItem}>
-          <Text style={styles.dateNavTextBold}>LIVE</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.dateNavItem}>
-          <Text style={styles.dateNavText}>THU</Text>
-          <Text style={styles.dateNavText}>13 NOV</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.dateNavItem}>
-          <Text style={styles.dateNavText}>FRI</Text>
-          <Text style={styles.dateNavText}>14 NOV</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.dateNavItem, styles.dateNavItemActive]}>
-          <Text style={styles.dateNavTextBold}>TODAY</Text>
-          <Text style={styles.dateNavText}>15 NOV</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.dateNavItem}>
-          <Text style={styles.dateNavText}>SUN</Text>
-          <Text style={styles.dateNavText}>16 NOV</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.dateNavItem}>
-          <Text style={styles.dateNavText}>MON</Text>
-          <Text style={styles.dateNavText}>17 NOV</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.dateNavItem}>
-          <MaterialCommunityIcons name="calendar-today" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
   );
 
   const groupedMatches = React.useMemo(() => {
@@ -146,53 +287,115 @@ const HighlightScreen = () => {
     return null;
   };
 
+  const menuTranslateY = menuAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-10, 0],
+  });
+
+  const popupScale = popupAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.9, 1],
+  });
+
   return (
     <SafeAreaView style={styles.container}>
-      <Header />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <AdBanner />
-        <View style={styles.scoresOddsContainer}>
-          <TouchableOpacity style={styles.scoresButton}>
-            <Text style={styles.scoresButtonText}>Scores</Text>
-            <MaterialCommunityIcons name="chevron-down" size={16} color={COLORS.text} />
-          </TouchableOpacity>
-          <View style={styles.oddsSwitchContainer}>
-            <Text style={styles.oddsSwitchText}>Odds</Text>
-            <Switch
-              trackColor={{ false: '#767577', true: COLORS.primary }}
-              thumbColor={oddsEnabled ? '#fff' : '#f4f3f4'}
-              ios_backgroundColor="#3e3e3e"
-              onValueChange={() => setOddsEnabled(previousState => !previousState)}
-              value={oddsEnabled}
-            />
-          </View>
-        </View>
-        <DateSelector />
-        <View style={styles.matchesContainer}>
-          <View style={styles.favouritesHeader}>
-            <View style={styles.favouritesHeaderLeft}>
-              <View style={styles.favouritesIconContainer}>
-                <MaterialCommunityIcons name="soccer" size={18} color="#000" />
-              </View>
-              <Text style={styles.favouritesTitle}>Matches</Text>
-            </View>
-            <TouchableOpacity style={styles.collapsibleHeader} onPress={() => setMatchesCollapsed(!matchesCollapsed)}>
-              <MaterialCommunityIcons name="dots-vertical" size={18} color="#999" />
-              <MaterialCommunityIcons name={matchesCollapsed ? "chevron-down" : "chevron-up"} size={18} color="#999" />
+      <View style={[styles.content, isTablet && styles.contentTablet]}>
+        <Header />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <AdBanner />
+          <View style={styles.scoresOddsContainer}>
+            <TouchableOpacity style={styles.scoresButton}>
+              <Text style={styles.scoresButtonText}>Scores</Text>
+              <MaterialCommunityIcons name="chevron-down" size={16} color={COLORS.text} />
             </TouchableOpacity>
-          </View>
-          {!matchesCollapsed && (
-            <View style={styles.favouritesContent}>
-              <FlatList
-                data={groupedMatches}
-                renderItem={renderItem}
-                keyExtractor={(item, index) => item.type === 'match' ? item.data.id : item.leagueName + index}
-                scrollEnabled={false}
+            <View style={styles.oddsSwitchContainer}>
+              <Text style={styles.oddsSwitchText}>Odds</Text>
+              <Switch
+                trackColor={{ false: '#767577', true: COLORS.primary }}
+                thumbColor={oddsEnabled ? '#fff' : '#f4f3f4'}
+                ios_backgroundColor="#3e3e3e"
+                onValueChange={() => setOddsEnabled(previousState => !previousState)}
+                value={oddsEnabled}
               />
             </View>
-          )}
-        </View>
-      </ScrollView>
+          </View>
+          <DateSelector 
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            liveAnimation={liveAnimation}
+          />
+          <View style={styles.matchesContainer}>
+            <View style={styles.favouritesHeader}>
+              <View style={styles.favouritesHeaderLeft}>
+                <View style={styles.favouritesIconContainer}>
+                  <MaterialCommunityIcons name="soccer" size={18} color="#000" />
+                </View>
+                <Text style={styles.favouritesTitle}>Matches</Text>
+              </View>
+              <TouchableOpacity style={styles.collapsibleHeader} onPress={() => setMatchesCollapsed(!matchesCollapsed)}>
+                <MaterialCommunityIcons name="dots-vertical" size={18} color="#999" />
+                <MaterialCommunityIcons name={matchesCollapsed ? "chevron-down" : "chevron-up"} size={18} color="#999" />
+              </TouchableOpacity>
+            </View>
+            {!matchesCollapsed && (
+              <View style={styles.favouritesContent}>
+                <FlatList
+                  data={groupedMatches}
+                  renderItem={renderItem}
+                  keyExtractor={(item, index) => item.type === 'match' ? item.data.id : item.leagueName + index}
+                  scrollEnabled={false}
+                />
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </View>
+
+      <Modal
+        transparent
+        visible={menuVisible}
+        onRequestClose={() => toggleMenu(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => toggleMenu(false)}>
+          <Animated.View style={[styles.menuContainer, { opacity: menuAnimation, transform: [{ translateY: menuTranslateY }] }]}>
+            <TouchableOpacity style={styles.menuItem}>
+              <MaterialCommunityIcons name="account-circle-outline" size={24} color={COLORS.text} />
+              <Text style={styles.menuItemText}>Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem}>
+              <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.text} />
+              <Text style={styles.menuItemText}>Notifications</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem}>
+              <MaterialCommunityIcons name="cog-outline" size={24} color={COLORS.text} />
+              <Text style={styles.menuItemText}>Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <MaterialCommunityIcons name="logout" size={24} color={COLORS.error} />
+              <Text style={[styles.menuItemText, { color: COLORS.error }]}>Logout</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={logoutPopupVisible}
+        onRequestClose={() => toggleLogoutPopup(false)}>
+        <Animated.View style={[styles.popupBackdrop, { opacity: popupAnimation }]}>
+          <Animated.View style={[styles.popupContainer, { transform: [{ scale: popupScale }] }]}>
+            <Text style={styles.popupTitle}>Logout</Text>
+            <Text style={styles.popupMessage}>Are you sure you want to logout?</Text>
+            <View style={styles.popupButtons}>
+              <TouchableOpacity style={[styles.popupButton, styles.cancelButton]} onPress={() => toggleLogoutPopup(false)}>
+                <Text style={styles.popupButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.popupButton, styles.confirmButton]} onPress={confirmLogout}>
+                <Text style={styles.popupButtonText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -201,6 +404,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    alignItems: 'center',
+  },
+  content: {
+    width: '100%',
+    height: '100%',
+    maxWidth: 500,
+  },
+  contentTablet: {
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -209,6 +422,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.base,
   },
+
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -282,21 +496,36 @@ const styles = StyleSheet.create({
     right: 10,
   },
   dateNavContainer: {
-    paddingHorizontal: SIZES.padding,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: SIZES.base,
   },
-  dateNavScrollView: {
+  liveButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: SIZES.padding,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'red',
+    marginRight: 5,
+  },
+  liveText: {
+    color: 'red',
+  },
+  dateNavScrollView: {
+    flex: 1,
   },
   dateNavItem: {
+    width: ITEM_WIDTH,
     alignItems: 'center',
+    justifyContent: 'center',
     padding: SIZES.base,
+    marginHorizontal: ITEM_MARGIN,
+    height: 60,
     borderRadius: SIZES.radius,
-  },
-  dateNavItemActive: {
-    backgroundColor: '#2c2c2c',
   },
   dateNavText: {
     fontFamily: FONT_FAMILY.primary,
@@ -307,6 +536,20 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     color: COLORS.text,
     fontSize: 14,
+  },
+  calendarButton: {
+    paddingHorizontal: SIZES.padding,
+  },
+  highlightMarker: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '50%',
+    width: FULL_ITEM_WIDTH,
+    marginLeft: -(FULL_ITEM_WIDTH / 2),
+    backgroundColor: '#2c2c2c',
+    borderRadius: SIZES.radius,
+    zIndex: -1,
   },
   matchesContainer: {
     padding: SIZES.padding,
@@ -411,6 +654,83 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#2c2c2c', // gray-200 dark:bg-zinc-800
     marginVertical: SIZES.base,
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  menuContainer: {
+    position: 'absolute',
+    top: 55, // Adjust as needed
+    left: SIZES.padding,
+    backgroundColor: '#333',
+    borderRadius: BORDER_RADIUS.small,
+    padding: SIZES.base / 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SIZES.base,
+    paddingHorizontal: SIZES.base,
+  },
+  menuItemText: {
+    color: COLORS.text,
+    fontFamily: FONT_FAMILY.primary,
+    fontSize: 14,
+    marginLeft: SIZES.base,
+  },
+  popupBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  popupContainer: {
+    backgroundColor: '#333',
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding * 2,
+    width: '80%',
+    alignItems: 'center',
+  },
+  popupTitle: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 20,
+    color: COLORS.text,
+    marginBottom: SIZES.base,
+  },
+  popupMessage: {
+    fontFamily: FONT_FAMILY.primary,
+    fontSize: 16,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SIZES.padding,
+  },
+  popupButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  popupButton: {
+    paddingVertical: SIZES.base,
+    paddingHorizontal: SIZES.padding,
+    borderRadius: SIZES.radius,
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: SIZES.base,
+  },
+  cancelButton: {
+    backgroundColor: '#555',
+  },
+  confirmButton: {
+    backgroundColor: COLORS.error,
+  },
+  popupButtonText: {
+    color: '#fff',
+    fontFamily: FONT_FAMILY.bold,
   },
 });
 
