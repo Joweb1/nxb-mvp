@@ -95,9 +95,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
     borderTopWidth: 1,
     borderTopColor: '#222',
-    height: 80,
+    height: 95,
+    paddingBottom: 15,
     paddingHorizontal: 10,
-    marginBottom: 10,
+    // marginBottom: 10, // Removed to fix white space
   },
   buttonContainer: {
     flex: 1,

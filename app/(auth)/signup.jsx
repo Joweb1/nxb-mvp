@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useLoading } from '../../context/LoadingContext';
 import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { mapFirebaseAuthError } from '../../utils/firebaseErrors';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -10,9 +11,9 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signUp } = useAuth();
+  const { showLoading, hideLoading, isLoading } = useLoading();
   const { isTablet } = useResponsive();
 
   const handleSignUp = async () => {
@@ -29,7 +30,7 @@ export default function SignUpScreen() {
       return;
     }
 
-    setLoading(true);
+    showLoading('Creating account...');
     setError('');
     try {
       await signUp(email, password);
@@ -37,7 +38,7 @@ export default function SignUpScreen() {
     } catch (error) {
       setError(mapFirebaseAuthError(error.code));
     } finally {
-      setLoading(false);
+      hideLoading();
     }
   };
 
@@ -85,13 +86,9 @@ export default function SignUpScreen() {
         <Pressable
           style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}
           onPress={handleSignUp}
-          disabled={loading}
+          disabled={isLoading}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.buttonText}>Sign Up</Text>
-          )}
+          <Text style={styles.buttonText}>Sign Up</Text>
         </Pressable>
 
         <View style={styles.footer}>

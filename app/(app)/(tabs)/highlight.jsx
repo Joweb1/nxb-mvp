@@ -1,16 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Switch, Animated, Dimensions, Modal, Pressable, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Animated, Dimensions, Modal, Pressable, ActivityIndicator, Easing } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/firebaseConfig';
 import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '@/constants/theme';
 import MatchItem from '@/components/MatchItem';
 import { Image } from 'expo-image';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useAuth } from '@/context/AuthContext';
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+import { useLoading } from '@/context/LoadingContext';
+import ToastNotification from '@/components/ToastNotification';
+import MatchDetailModal from '@/components/MatchDetailModal';
+import LeagueDetailModal from '@/components/LeagueDetailModal';
+import TeamDetailModal from '@/components/TeamDetailModal';
+import { triggerManualUpdate } from '@/services/firebase';
 const ITEM_WIDTH = 70;
 const ITEM_MARGIN = 4;
 const FULL_ITEM_WIDTH = ITEM_WIDTH + ITEM_MARGIN * 2;
@@ -127,9 +132,13 @@ const DateSelector = ({ selectedDate, setSelectedDate, liveAnimation }) => {
   );
 };
 
+import { useRouter } from 'expo-router';
 import ForYouModal from '@/components/ForYouModal';
+import SearchModal from '@/components/SearchModal';
+import FilterModal from '@/components/FilterModal';
 
 const HighlightScreen = () => {
+  const router = useRouter();
   const [adVisible, setAdVisible] = React.useState(true);
   const [oddsEnabled, setOddsEnabled] = React.useState(false);
   const [matchesCollapsed, setMatchesCollapsed] = React.useState(false);
@@ -138,11 +147,62 @@ const HighlightScreen = () => {
   const [menuVisible, setMenuVisible] = React.useState(false);
   const [logoutPopupVisible, setLogoutPopupVisible] = React.useState(false);
   const [forYouModalVisible, setForYouModalVisible] = React.useState(false);
+  const [searchModalVisible, setSearchModalVisible] = React.useState(false);
+  const [filterModalVisible, setFilterModalVisible] = React.useState(false);
+  const [filters, setFilters] = useState({ sortBy: 'time', status: 'all' });
   const { logOut, user } = useAuth();
   const [matches, setMatches] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { showLoading, hideLoading } = useLoading();
+  const [toastVisible, setToastVisible] = useState(false);
+  const [updateToastVisible, setUpdateToastVisible] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
+  const [visibleCount, setVisibleCount] = useState(20);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Rotation Animation
+  const spinValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (isUpdating) {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.stopAnimation();
+      spinValue.setValue(0);
+    }
+  }, [isUpdating]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
+
+  const handleManualUpdate = async () => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    
+    // Non-blocking update
+    triggerManualUpdate().then((result) => {
+      setUpdateMessage(result.message);
+      setUpdateToastVisible(true);
+      setIsUpdating(false);
+      setTimeout(() => setUpdateToastVisible(false), 3000);
+    });
+  };
+
+  // Modal States
+  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [selectedLeague, setSelectedLeague] = useState(null);
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
+
+  useEffect(() => {
+    showLoading("Loading matches...");
     const unsubscribe = onSnapshot(collection(db, 'matches'), (snapshot) => {
       const matchesData = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -152,6 +212,8 @@ const HighlightScreen = () => {
           status: data.fixture.status.short,
           minute: data.fixture.status.elapsed + "'",
           time: new Date(data.fixture.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          homeId: data.teams.home.id,
+          awayId: data.teams.away.id,
           teamA: data.teams.home.name,
           teamB: data.teams.away.name,
           teamALogo: data.teams.home.logo,
@@ -159,14 +221,17 @@ const HighlightScreen = () => {
           scoreA: data.goals.home,
           scoreB: data.goals.away,
           action: data.fixture.status.short === 'NS' ? 'Preview' : 'Summary',
-          isFavourite: false, // Implement favourite logic later
           league: data.league.name,
+          leagueId: data.league.id,
           leagueIcon: data.league.logo,
           leagueCountry: data.league.country,
         };
       });
       setMatches(matchesData);
-      setLoading(false);
+      hideLoading();
+    }, (error) => {
+      console.error("Error fetching matches: ", error);
+      hideLoading();
     });
 
     return () => unsubscribe();
@@ -228,16 +293,18 @@ const HighlightScreen = () => {
         <TouchableOpacity style={styles.headerButton} onPress={() => toggleMenu(true)}>
           <MaterialCommunityIcons name="dots-horizontal" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerButton}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => setSearchModalVisible(true)}>
           <MaterialCommunityIcons name="magnify" size={24} color={COLORS.text} />
         </TouchableOpacity>
       </View>
       <Text style={styles.headerTitle}>NXB Football</Text>
       <View style={styles.headerRight}>
-        <Image
-          source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCXCoVGMUm1NGhYIzanEHN4bAJNjWeYeWZ05VKdlg30z94X9ZIoJRbfjMyCtxfONofU4wAT-Bic_fAaNTUDUowZbFuFFrWOD-4erj7BpS9JOQ2_bvvffdQFL2zELhifyftodejxZS9NhIVymTkXUnoyphZk0TqW4KZPaUXusEYWO6ih2JCl7Pj0e6UGq-SAjFRaIGwsOivsySL87_bcsU8TFkyILLaxYwKrpcObZXQ8sGaAQ3c86_V6HckzKKwNVdAinjmarR_eM5wO' }}
-          style={styles.avatar}
-        />
+        <TouchableOpacity style={styles.avatarButton} onPress={() => router.push('/(app)/profile/profile')}>
+          <Image
+            source={{ uri: user?.favoriteTeam?.logo || user?.photoURL || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCXCoVGMUm1NGhYIzanEHN4bAJNjWeYeWZ05VKdlg30z94X9ZIoJRbfjMyCtxfONofU4wAT-Bic_fAaNTUDUowZbFuFFrWOD-4erj7BpS9JOQ2_bvvffdQFL2zELhifyftodejxZS9NhIVymTkXUnoyphZk0TqW4KZPaUXusEYWO6ih2JCl7Pj0e6UGq-SAjFRaIGwsOivsySL87_bcsU8TFkyILLaxYwKrpcObZXQ8sGaAQ3c86_V6HckzKKwNVdAinjmarR_eM5wO' }}
+            style={styles.avatar}
+          />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.headerButton} onPress={() => setForYouModalVisible(true)}>
           <MaterialCommunityIcons name="plus" size={24} color={COLORS.text} />
         </TouchableOpacity>
@@ -283,27 +350,44 @@ const HighlightScreen = () => {
 
     const filtered = matches.filter(match => isSameDay(match.date, selectedDate));
 
+    // Apply Filters
+    const statusFiltered = filtered.filter(match => {
+      if (filters.status === 'all') return true;
+      if (filters.status === 'live') return ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(match.status);
+      if (filters.status === 'upcoming') return match.status === 'NS';
+      if (filters.status === 'finished') return ['FT', 'AET', 'PEN'].includes(match.status);
+      return true;
+    });
+
+    // Sorting
+    statusFiltered.sort((a, b) => {
+      if (filters.sortBy === 'time') {
+        return new Date(a.date) - new Date(b.date);
+      } else if (filters.sortBy === 'league') {
+        return a.league.localeCompare(b.league);
+      }
+      return 0;
+    });
+    
+    // Grouping
     const groups = {
       live: [],
       upcoming: [],
       finished: [],
     };
-
-    if (isPast) {
-      groups.finished = filtered;
-    } else if (isFuture) {
-      groups.upcoming = filtered;
-    } else { // Today
-      filtered.forEach(match => {
-        if (['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(match.status)) {
-          groups.live.push(match);
-        } else if (match.status === 'NS') {
-          groups.upcoming.push(match);
-        } else {
-          groups.finished.push(match);
-        }
-      });
-    }
+    
+    // If filter is active, we might just want to show everything in one list or still grouped? 
+    // Let's keep grouping but only populate relevant groups.
+    
+    statusFiltered.forEach(match => {
+      if (['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(match.status)) {
+        groups.live.push(match);
+      } else if (match.status === 'NS') {
+        groups.upcoming.push(match);
+      } else {
+        groups.finished.push(match);
+      }
+    });
 
 
     const popularLeagues = [
@@ -347,14 +431,14 @@ const HighlightScreen = () => {
       let leagues = {};
       groups.live.forEach(match => {
         if (!leagues[match.league]) {
-          leagues[match.league] = { leagueName: match.league, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
+          leagues[match.league] = { leagueName: match.league, leagueId: match.leagueId, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
         }
         leagues[match.league].matches.push(match);
       });
       leagues = sortLeagues(leagues);
       for (const leagueName in leagues) {
         const league = leagues[leagueName];
-        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
+        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueId: league.leagueId, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
         league.matches.forEach(match => {
           data.push({ type: 'match', data: { ...match, isFavourite: (user.favorites || []).includes(match.id) } });
         });
@@ -365,14 +449,14 @@ const HighlightScreen = () => {
        let leagues = {};
       groups.upcoming.forEach(match => {
         if (!leagues[match.league]) {
-          leagues[match.league] = { leagueName: match.league, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
+          leagues[match.league] = { leagueName: match.league, leagueId: match.leagueId, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
         }
         leagues[match.league].matches.push(match);
       });
       leagues = sortLeagues(leagues);
       for (const leagueName in leagues) {
         const league = leagues[leagueName];
-        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
+        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueId: league.leagueId, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
         league.matches.forEach(match => {
           data.push({ type: 'match', data: { ...match, isFavourite: (user.favorites || []).includes(match.id) } });
         });
@@ -383,14 +467,14 @@ const HighlightScreen = () => {
        let leagues = {};
       groups.finished.forEach(match => {
         if (!leagues[match.league]) {
-          leagues[match.league] = { leagueName: match.league, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
+          leagues[match.league] = { leagueName: match.league, leagueId: match.leagueId, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
         }
         leagues[match.league].matches.push(match);
       });
       leagues = sortLeagues(leagues);
       for (const leagueName in leagues) {
         const league = leagues[leagueName];
-        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
+        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueId: league.leagueId, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
         league.matches.forEach(match => {
           data.push({ type: 'match', data: { ...match, isFavourite: (user.favorites || []).includes(match.id) } });
         });
@@ -398,7 +482,7 @@ const HighlightScreen = () => {
     }
 
     return data;
-  }, [matches, selectedDate, user.favorites]);
+  }, [matches, selectedDate, user.favorites, filters]);
 
   const renderItem = ({ item }) => {
     if (item.type === 'statusHeader') {
@@ -406,7 +490,7 @@ const HighlightScreen = () => {
     }
     if (item.type === 'leagueHeader') {
       return (
-        <View>
+        <TouchableOpacity onPress={() => setSelectedLeague({ id: item.leagueId, name: item.leagueName, logo: item.leagueIcon, country: item.leagueCountry })}>
           <View style={styles.leagueHeader}>
             <View style={styles.leagueHeaderLeft}>
               {item.leagueIcon && (
@@ -422,10 +506,10 @@ const HighlightScreen = () => {
             <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
           </View>
           <View style={styles.leagueSeparator} />
-        </View>
+        </TouchableOpacity>
       );
     } else if (item.type === 'match') {
-      return <MatchItem match={item.data} />;
+      return <MatchItem match={item.data} onPress={() => setSelectedMatch(item.data)} />;
     }
     return null;
   };
@@ -440,24 +524,43 @@ const HighlightScreen = () => {
     outputRange: [0.9, 1],
   });
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
+  const loadMore = () => {
+    if (visibleCount >= groupedMatches.length || toastVisible) return;
+    
+    setToastVisible(true);
+    setTimeout(() => {
+      setVisibleCount(prev => prev + 10);
+      setToastVisible(false);
+    }, 1500); 
+  };
+
+  const isCloseToBottom = ({ layoutMeasurement, contentOffset, contentSize }) => {
+    // Trigger when within 20px of the bottom. 
+    // This allows the user to "hit" the bottom before loading starts.
+    const paddingToBottom = 20; 
+    return layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.content, isTablet && styles.contentTablet]}>
         <Header />
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          onScroll={({ nativeEvent }) => {
+            if (isCloseToBottom(nativeEvent)) {
+              loadMore();
+            }
+          }}
+          scrollEventThrottle={16}
+        >
           <AdBanner />
           <View style={styles.scoresOddsContainer}>
-            <TouchableOpacity style={styles.scoresButton}>
-              <Text style={styles.scoresButtonText}>Scores</Text>
-              <MaterialCommunityIcons name="chevron-down" size={16} color={COLORS.text} />
+            <TouchableOpacity style={styles.scoresButton} onPress={handleManualUpdate} disabled={isUpdating}>
+              <Text style={styles.scoresButtonText}>Update</Text>
+              <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                <MaterialCommunityIcons name="refresh" size={18} color={COLORS.text} />
+              </Animated.View>
             </TouchableOpacity>
             <View style={styles.oddsSwitchContainer}>
               <Text style={styles.oddsSwitchText}>Bet</Text>
@@ -483,19 +586,24 @@ const HighlightScreen = () => {
                 </View>
                 <Text style={styles.favouritesTitle}>Matches</Text>
               </View>
-              <TouchableOpacity style={styles.collapsibleHeader} onPress={() => setMatchesCollapsed(!matchesCollapsed)}>
-                <MaterialCommunityIcons name="dots-vertical" size={18} color="#999" />
-                <MaterialCommunityIcons name={matchesCollapsed ? "chevron-down" : "chevron-up"} size={18} color="#999" />
-              </TouchableOpacity>
+              <View style={styles.headerControls}>
+                <TouchableOpacity style={styles.iconButton} onPress={() => setFilterModalVisible(true)}>
+                    <MaterialCommunityIcons name="filter-variant" size={20} color="#999" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconButton} onPress={() => setMatchesCollapsed(!matchesCollapsed)}>
+                    <MaterialCommunityIcons name={matchesCollapsed ? "chevron-down" : "chevron-up"} size={20} color="#999" />
+                </TouchableOpacity>
+              </View>
             </View>
             {!matchesCollapsed && (
               <View style={styles.favouritesContent}>
                 {groupedMatches.length > 0 ? (
-                  <FlatList
-                    data={groupedMatches}
+                  <FlashList
+                    data={groupedMatches.slice(0, visibleCount)}
                     renderItem={renderItem}
                     keyExtractor={(item, index) => item.type === 'match' ? item.data.id : (item.leagueName || item.title) + index}
                     scrollEnabled={false}
+                    estimatedItemSize={85}
                   />
                 ) : (
                   <Text style={styles.noMatchesText}>Data unavailable for this date</Text>
@@ -505,6 +613,9 @@ const HighlightScreen = () => {
           </View>
         </ScrollView>
       </View>
+      
+      <ToastNotification visible={toastVisible} message="Loading more data..." />
+      <ToastNotification visible={updateToastVisible} message={updateMessage} />
 
       <Modal
         transparent
@@ -512,15 +623,15 @@ const HighlightScreen = () => {
         onRequestClose={() => toggleMenu(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => toggleMenu(false)}>
           <Animated.View style={[styles.menuContainer, { opacity: menuAnimation, transform: [{ translateY: menuTranslateY }] }]}>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(false); router.push('/(app)/profile/profile'); }}>
               <MaterialCommunityIcons name="account-circle-outline" size={24} color={COLORS.text} />
               <Text style={styles.menuItemText}>Profile</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(false); router.push('/(app)/notifications/notifications'); }}>
               <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.text} />
               <Text style={styles.menuItemText}>Notifications</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(false); router.push('/(app)/settings/settings'); }}>
               <MaterialCommunityIcons name="cog-outline" size={24} color={COLORS.text} />
               <Text style={styles.menuItemText}>Settings</Text>
             </TouchableOpacity>
@@ -552,6 +663,37 @@ const HighlightScreen = () => {
         </Animated.View>
       </Modal>
       <ForYouModal visible={forYouModalVisible} onClose={() => setForYouModalVisible(false)} />
+      <SearchModal visible={searchModalVisible} onClose={() => setSearchModalVisible(false)} matches={matches} />
+      <FilterModal visible={filterModalVisible} onClose={() => setFilterModalVisible(false)} onApply={setFilters} currentFilters={filters} />
+      
+      {selectedMatch && (
+        <MatchDetailModal 
+          visible={!!selectedMatch} 
+          match={selectedMatch} 
+          onClose={() => setSelectedMatch(null)} 
+          onTeamPress={(teamId) => setSelectedTeamId(teamId)}
+        />
+      )}
+
+      {selectedLeague && (
+        <LeagueDetailModal
+          visible={!!selectedLeague}
+          leagueName={selectedLeague.name}
+          leagueLogo={selectedLeague.logo}
+          leagueCountry={selectedLeague.country}
+          // Note: ID needs to be properly passed from data source for real fetching
+          leagueId={selectedLeague.id || 39 /* Fallback to PL for demo if ID missing */} 
+          onClose={() => setSelectedLeague(null)}
+        />
+      )}
+
+      {selectedTeamId && (
+        <TeamDetailModal
+          visible={!!selectedTeamId}
+          teamId={selectedTeamId}
+          onClose={() => setSelectedTeamId(null)}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -601,11 +743,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: COLORS.text,
   },
+  avatarButton: {
+    marginHorizontal: SIZES.base,
+  },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginHorizontal: SIZES.base,
   },
   adBanner: {
     backgroundColor: '#2c2c2c',
@@ -770,6 +914,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: 16,
     color: COLORS.text,
+  },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  iconButton: {
+    padding: 4,
   },
   collapsibleHeader: {
     flexDirection: 'row',

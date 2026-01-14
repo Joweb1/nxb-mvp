@@ -7,12 +7,6 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
-import { getLiveFixtures } from '../services/api-football';
-import {
-  updateMatchesInFirestore,
-  setLastFetchTimestamp,
-  getLastFetchTimestamp,
-} from '../services/firebase';
 
 const AuthContext = createContext();
 
@@ -43,29 +37,6 @@ export const AuthProvider = ({ children }) => {
       }
       setLoading(false);
     });
-
-    const TEN_MINUTES_IN_MS = 10 * 60 * 1000;
-
-    const fetchData = async () => {
-      const lastFetch = await getLastFetchTimestamp();
-      const now = new Date().getTime();
-
-      if (!lastFetch || now - new Date(lastFetch).getTime() > TEN_MINUTES_IN_MS) {
-        console.log('Fetching new data from API-Football...');
-        try {
-          const liveFixtures = await getLiveFixtures();
-          await updateMatchesInFirestore(liveFixtures);
-          await setLastFetchTimestamp();
-          console.log('Data updated successfully.');
-        } catch (error) {
-          console.error('Error fetching or updating data:', error);
-        }
-      } else {
-        console.log('Data is up to date.');
-      }
-    };
-
-    fetchData();
 
     return unsubscribe;
   }, []);

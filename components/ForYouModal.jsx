@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '../constants/theme';
@@ -12,6 +12,7 @@ const ForYouModal = ({ visible, onClose }) => {
   const [leagues, setLeagues] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
   const { addToForYou, isForYou } = useAuth();
 
   useEffect(() => {
@@ -39,23 +40,26 @@ const ForYouModal = ({ visible, onClose }) => {
 
     if (visible) {
       fetchData();
+      setSearchText('');
     }
   }, [visible]);
+
+  const filteredData = (activeTab === 'leagues' ? leagues : teams).filter(item =>
+    item.name.toLowerCase().includes(searchText.toLowerCase())
+  );
 
   const renderItem = ({ item, type }) => {
     const isAdded = isForYou(item.name, type);
     return (
-      <View style={styles.itemContainer}>
+      <TouchableOpacity style={styles.itemContainer} onPress={() => addToForYou(item.name, type)}>
         <Image source={{ uri: item.logo }} style={styles.itemLogo} />
         <Text style={styles.itemName}>{item.name}</Text>
-        <TouchableOpacity onPress={() => addToForYou(item.name, type)}>
-          <MaterialCommunityIcons
-            name={isAdded ? 'check-circle' : 'plus-circle-outline'}
-            size={24}
-            color={isAdded ? COLORS.primary : COLORS.text}
-          />
-        </TouchableOpacity>
-      </View>
+        <MaterialCommunityIcons
+          name={isAdded ? 'check-circle' : 'plus-circle-outline'}
+          size={24}
+          color={isAdded ? COLORS.primary : COLORS.text}
+        />
+      </TouchableOpacity>
     );
   };
 
@@ -67,13 +71,25 @@ const ForYouModal = ({ visible, onClose }) => {
       onRequestClose={onClose}
     >
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <View style={styles.modalContainer} onStartShouldSetResponder={() => true}>
+        <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Add to your feed</Text>
             <TouchableOpacity onPress={onClose}>
               <MaterialCommunityIcons name="close" size={24} color={COLORS.text} />
             </TouchableOpacity>
           </View>
+          
+          <View style={styles.searchContainer}>
+            <MaterialCommunityIcons name="magnify" size={20} color={COLORS.text} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search..."
+              placeholderTextColor="#999"
+              value={searchText}
+              onChangeText={setSearchText}
+            />
+          </View>
+
           <View style={styles.tabsContainer}>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'leagues' && styles.activeTab]}
@@ -92,14 +108,17 @@ const ForYouModal = ({ visible, onClose }) => {
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
           ) : (
             <FlatList
-              data={activeTab === 'leagues' ? leagues : teams}
+              data={filteredData}
               renderItem={({ item }) => renderItem({ item, type: activeTab })}
               keyExtractor={(item) => item.name}
               showsVerticalScrollIndicator={true}
               contentContainerStyle={{ paddingBottom: 50 }}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>No results found</Text>
+              }
             />
           )}
-        </View>
+        </Pressable>
       </Pressable>
     </Modal>
   );
@@ -128,6 +147,24 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY.bold,
     fontSize: SIZES.h2,
     color: COLORS.text,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    borderRadius: BORDER_RADIUS.medium,
+    paddingHorizontal: SIZES.base,
+    marginBottom: SIZES.padding,
+    height: 45,
+  },
+  searchIcon: {
+    marginRight: SIZES.base,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.text,
+    fontFamily: FONT_FAMILY.primary,
+    fontSize: SIZES.body,
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -166,6 +203,12 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     color: COLORS.text,
     flex: 1,
+  },
+  emptyText: {
+    fontFamily: FONT_FAMILY.primary,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
 

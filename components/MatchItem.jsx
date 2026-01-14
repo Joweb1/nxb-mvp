@@ -6,15 +6,14 @@ import { COLORS, FONT_FAMILY, SIZES } from '@/constants/theme';
 
 import { useAuth } from '@/context/AuthContext';
 
-const MatchItem = ({ match }) => {
+const MatchItem = React.memo(({ match, onPress }) => {
   const { isFavorite, toggleFavorite } = useAuth();
   const isLive = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(match.status);
-  const actionText = match.action === 'Preview' ? 'Preview' : 'Summary';
   const isFavourite = isFavorite(match.id);
   const starIconColor = isFavourite ? COLORS.primary : '#999';
 
   return (
-    <View style={styles.container}>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.timeStatusContainer}>
         {isLive ? (
           <View style={styles.liveContainer}>
@@ -48,9 +47,9 @@ const MatchItem = ({ match }) => {
       <TouchableOpacity onPress={() => toggleFavorite(match.id)}>
         <MaterialCommunityIcons name="star" size={20} color={starIconColor} />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

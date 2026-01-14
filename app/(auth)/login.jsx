@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useLoading } from '../../context/LoadingContext';
 import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { mapFirebaseAuthError } from '../../utils/firebaseErrors';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -9,9 +10,9 @@ import { useResponsive } from '@/hooks/useResponsive';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signIn } = useAuth();
+  const { showLoading, hideLoading, isLoading } = useLoading();
   const { isTablet } = useResponsive();
 
   const handleSignIn = async () => {
@@ -19,7 +20,7 @@ export default function LoginScreen() {
       setError('Please fill in all fields.');
       return;
     }
-    setLoading(true);
+    showLoading('Signing in...');
     setError('');
     try {
       await signIn(email, password);
@@ -27,7 +28,7 @@ export default function LoginScreen() {
     } catch (error) {
       setError(mapFirebaseAuthError(error.code));
     } finally {
-      setLoading(false);
+      hideLoading();
     }
   };
 
@@ -66,13 +67,9 @@ export default function LoginScreen() {
         <Pressable
           style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}
           onPress={handleSignIn}
-          disabled={loading}
+          disabled={isLoading}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.buttonText}>Sign In</Text>
-          )}
+          <Text style={styles.buttonText}>Sign In</Text>
         </Pressable>
 
         <View style={styles.footer}>

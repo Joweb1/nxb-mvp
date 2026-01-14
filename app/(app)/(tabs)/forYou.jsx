@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
-import { COLORS, FONT_FAMILY } from '../../constants/theme';
+import { db } from '@/firebaseConfig';
+import { COLORS, FONT_FAMILY } from '@/constants/theme';
 import { useResponsive } from '@/hooks/useResponsive';
 import MatchItem from '@/components/MatchItem';
 
