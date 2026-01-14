@@ -4,16 +4,22 @@ import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, FONT_FAMILY, SIZES } from '@/constants/theme';
 
+import { useAuth } from '@/context/AuthContext';
+
 const MatchItem = ({ match }) => {
-  const isLive = match.status === 'live';
+  const { isFavorite, toggleFavorite } = useAuth();
+  const isLive = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(match.status);
   const actionText = match.action === 'Preview' ? 'Preview' : 'Summary';
-  const starIconColor = match.isFavourite ? COLORS.primary : '#999'; // text-primary or gray-400
+  const isFavourite = isFavorite(match.id);
+  const starIconColor = isFavourite ? COLORS.primary : '#999';
 
   return (
     <View style={styles.container}>
       <View style={styles.timeStatusContainer}>
         {isLive ? (
-          <Text style={styles.liveMinute}>{match.minute}</Text>
+          <View style={styles.liveContainer}>
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
         ) : (
           <Text style={styles.time}>{match.time}</Text>
         )}
@@ -22,6 +28,7 @@ const MatchItem = ({ match }) => {
       {isLive && <View style={styles.liveIndicator} />}
 
       <View style={styles.teamsScoresContainer}>
+        <Text style={styles.leagueName}>{match.league}</Text>
         <View style={styles.teamRow}>
           <View style={styles.teamInfo}>
             <Image source={{ uri: match.teamALogo }} style={styles.teamLogo} />
@@ -38,11 +45,7 @@ const MatchItem = ({ match }) => {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.actionButton}>
-        <Text style={styles.actionButtonText}>{actionText}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity>
+      <TouchableOpacity onPress={() => toggleFavorite(match.id)}>
         <MaterialCommunityIcons name="star" size={20} color={starIconColor} />
       </TouchableOpacity>
     </View>
@@ -109,15 +112,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
   },
-  actionButton: {
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.base / 2,
+  liveContainer: {
+    backgroundColor: 'rgba(144, 238, 144, 0.2)',
     borderRadius: SIZES.radius,
+    paddingHorizontal: SIZES.base / 2,
+    paddingVertical: SIZES.base / 4,
   },
-  actionButtonText: {
+  liveText: {
+    color: 'lightgreen',
+    fontSize: 10,
+    fontFamily: FONT_FAMILY.bold,
+  },
+  leagueName: {
     fontFamily: FONT_FAMILY.primary,
     fontSize: 12,
-    color: COLORS.primary,
+    color: '#999',
+    marginBottom: SIZES.base / 2,
   },
 });
 

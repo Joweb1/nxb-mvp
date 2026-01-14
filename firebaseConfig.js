@@ -5,6 +5,11 @@ import { getAuth, initializeAuth, getReactNativePersistence, indexedDBLocalPersi
 import { getFirestore } from "firebase/firestore";
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
+// WARNING: It is not recommended to store API keys in your client-side code.
+// This is done here for simplicity, but in a production environment,
+// you should use a secure method like environment variables or a backend service to store your API key.
+export const API_FOOTBALL_KEY = "c99171a5658ec12d1ff0e76b772e7275";
+
 // TODO: Add your own Firebase configuration from your Firebase console
 const firebaseConfig = {
   apiKey: "AIzaSyCXgUPEYWFWSTEy6nVIqrzQn8Mbu2oOo9k",

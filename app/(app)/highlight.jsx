@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Switch, Animated, Dimensions, Modal, Pressable } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Switch, Animated, Dimensions, Modal, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '@/firebaseConfig';
 import { COLORS, FONT_FAMILY, SIZES, BORDER_RADIUS } from '@/constants/theme';
-import { mockMatches } from '@/mock/matches';
 import MatchItem from '@/components/MatchItem';
 import { Image } from 'expo-image';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -126,6 +127,8 @@ const DateSelector = ({ selectedDate, setSelectedDate, liveAnimation }) => {
   );
 };
 
+import ForYouModal from '@/components/ForYouModal';
+
 const HighlightScreen = () => {
   const [adVisible, setAdVisible] = React.useState(true);
   const [oddsEnabled, setOddsEnabled] = React.useState(false);
@@ -134,7 +137,40 @@ const HighlightScreen = () => {
   const [selectedDate, setSelectedDate] = React.useState(new Date());
   const [menuVisible, setMenuVisible] = React.useState(false);
   const [logoutPopupVisible, setLogoutPopupVisible] = React.useState(false);
-  const { logOut } = useAuth();
+  const [forYouModalVisible, setForYouModalVisible] = React.useState(false);
+  const { logOut, user } = useAuth();
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'matches'), (snapshot) => {
+      const matchesData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          date: data.fixture.date,
+          status: data.fixture.status.short,
+          minute: data.fixture.status.elapsed + "'",
+          time: new Date(data.fixture.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          teamA: data.teams.home.name,
+          teamB: data.teams.away.name,
+          teamALogo: data.teams.home.logo,
+          teamBLogo: data.teams.away.logo,
+          scoreA: data.goals.home,
+          scoreB: data.goals.away,
+          action: data.fixture.status.short === 'NS' ? 'Preview' : 'Summary',
+          isFavourite: false, // Implement favourite logic later
+          league: data.league.name,
+          leagueIcon: data.league.logo,
+          leagueCountry: data.league.country,
+        };
+      });
+      setMatches(matchesData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const liveAnimation = React.useRef(new Animated.Value(1)).current;
 
@@ -202,7 +238,7 @@ const HighlightScreen = () => {
           source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCXCoVGMUm1NGhYIzanEHN4bAJNjWeYeWZ05VKdlg30z94X9ZIoJRbfjMyCtxfONofU4wAT-Bic_fAaNTUDUowZbFuFFrWOD-4erj7BpS9JOQ2_bvvffdQFL2zELhifyftodejxZS9NhIVymTkXUnoyphZk0TqW4KZPaUXusEYWO6ih2JCl7Pj0e6UGq-SAjFRaIGwsOivsySL87_bcsU8TFkyILLaxYwKrpcObZXQ8sGaAQ3c86_V6HckzKKwNVdAinjmarR_eM5wO' }}
           style={styles.avatar}
         />
-        <TouchableOpacity style={styles.headerButton}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => setForYouModalVisible(true)}>
           <MaterialCommunityIcons name="plus" size={24} color={COLORS.text} />
         </TouchableOpacity>
       </View>
@@ -229,51 +265,158 @@ const HighlightScreen = () => {
     )
   );
 
-  const groupedMatches = React.useMemo(() => {
-    const groups = {};
-    mockMatches.forEach(match => {
-      if (!groups[match.league]) {
-        groups[match.league] = [];
-      }
-      groups[match.league].push(match);
-    });
+  const groupedMatches = useMemo(() => {
+    const isSameDay = (date1, date2) => {
+      if (!date1 || !date2) return false;
+      const d1 = new Date(date1);
+      const d2 = new Date(date2);
+      return d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate();
+    };
 
-    const data = [];
-    for (const leagueName in groups) {
-      data.push({ type: 'leagueHeader', leagueName: leagueName });
-      groups[leagueName].forEach(match => {
-        data.push({ type: 'match', data: match });
+    const today = new Date();
+    const selected = new Date(selectedDate);
+    const isToday = isSameDay(selected, today);
+    const isPast = selected < today && !isToday;
+    const isFuture = selected > today && !isToday;
+
+    const filtered = matches.filter(match => isSameDay(match.date, selectedDate));
+
+    const groups = {
+      live: [],
+      upcoming: [],
+      finished: [],
+    };
+
+    if (isPast) {
+      groups.finished = filtered;
+    } else if (isFuture) {
+      groups.upcoming = filtered;
+    } else { // Today
+      filtered.forEach(match => {
+        if (['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(match.status)) {
+          groups.live.push(match);
+        } else if (match.status === 'NS') {
+          groups.upcoming.push(match);
+        } else {
+          groups.finished.push(match);
+        }
       });
     }
+
+
+    const popularLeagues = [
+      'Premier League',
+      'La Liga',
+      'Bundesliga',
+      'Serie A',
+      'Ligue 1',
+      'UEFA Champions League',
+      'UEFA Europa League',
+    ];
+
+    const sortLeagues = (leagues) => {
+      const sortedLeagues = {};
+      const leagueNames = Object.keys(leagues);
+
+      leagueNames.sort((a, b) => {
+        const aIsPopular = popularLeagues.includes(a);
+        const bIsPopular = popularLeagues.includes(b);
+
+        if (aIsPopular && !bIsPopular) {
+          return -1;
+        }
+        if (!aIsPopular && bIsPopular) {
+          return 1;
+        }
+        return a.localeCompare(b);
+      });
+
+      leagueNames.forEach(name => {
+        sortedLeagues[name] = leagues[name];
+      });
+
+      return sortedLeagues;
+    };
+
+
+    const data = [];
+    if (groups.live.length > 0) {
+      data.push({ type: 'statusHeader', title: 'Live' });
+      let leagues = {};
+      groups.live.forEach(match => {
+        if (!leagues[match.league]) {
+          leagues[match.league] = { leagueName: match.league, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
+        }
+        leagues[match.league].matches.push(match);
+      });
+      leagues = sortLeagues(leagues);
+      for (const leagueName in leagues) {
+        const league = leagues[leagueName];
+        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
+        league.matches.forEach(match => {
+          data.push({ type: 'match', data: { ...match, isFavourite: (user.favorites || []).includes(match.id) } });
+        });
+      }
+    }
+    if (groups.upcoming.length > 0) {
+      data.push({ type: 'statusHeader', title: 'Upcoming' });
+       let leagues = {};
+      groups.upcoming.forEach(match => {
+        if (!leagues[match.league]) {
+          leagues[match.league] = { leagueName: match.league, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
+        }
+        leagues[match.league].matches.push(match);
+      });
+      leagues = sortLeagues(leagues);
+      for (const leagueName in leagues) {
+        const league = leagues[leagueName];
+        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
+        league.matches.forEach(match => {
+          data.push({ type: 'match', data: { ...match, isFavourite: (user.favorites || []).includes(match.id) } });
+        });
+      }
+    }
+    if (groups.finished.length > 0) {
+      data.push({ type: 'statusHeader', title: 'Finished' });
+       let leagues = {};
+      groups.finished.forEach(match => {
+        if (!leagues[match.league]) {
+          leagues[match.league] = { leagueName: match.league, leagueIcon: match.leagueIcon, leagueCountry: match.leagueCountry, matches: [] };
+        }
+        leagues[match.league].matches.push(match);
+      });
+      leagues = sortLeagues(leagues);
+      for (const leagueName in leagues) {
+        const league = leagues[leagueName];
+        data.push({ type: 'leagueHeader', leagueName: league.leagueName, leagueIcon: league.leagueIcon, leagueCountry: league.leagueCountry });
+        league.matches.forEach(match => {
+          data.push({ type: 'match', data: { ...match, isFavourite: (user.favorites || []).includes(match.id) } });
+        });
+      }
+    }
+
     return data;
-  }, [mockMatches]);
+  }, [matches, selectedDate, user.favorites]);
 
   const renderItem = ({ item }) => {
+    if (item.type === 'statusHeader') {
+      return <Text style={styles.statusHeader}>{item.title}</Text>;
+    }
     if (item.type === 'leagueHeader') {
-      // Find the corresponding league in highlight.html to get the icon and country
-      let leagueIcon = 'soccer'; // Default icon
-      let leagueCountry = '';
-
-      if (item.leagueName === 'NPFL') {
-        leagueIcon = 'trophy'; // Assuming trophy for NPFL
-        leagueCountry = 'Nigeria';
-      } else if (item.leagueName.includes('World Cup Qualifiers')) {
-        leagueIcon = 'trophy'; // Assuming trophy for World Cup Qualifiers
-        leagueCountry = 'UEFA Qualification: 1st Round: Group B'; // Hardcoding for now
-      }
-
       return (
         <View>
           <View style={styles.leagueHeader}>
             <View style={styles.leagueHeaderLeft}>
-              {leagueIcon && (
+              {item.leagueIcon && (
                 <View style={styles.leagueIconContainer}>
-                  <MaterialCommunityIcons name={leagueIcon} size={18} color="#FFD700" />
+                  <Image source={{ uri: item.leagueIcon }} style={styles.leagueIcon} />
                 </View>
               )}
               <View>
                 <Text style={styles.leagueTitle}>{item.leagueName}</Text>
-                {leagueCountry && <Text style={styles.leagueCountry}>{leagueCountry}</Text>}
+                {item.leagueCountry && <Text style={styles.leagueCountry}>{item.leagueCountry}</Text>}
               </View>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
@@ -297,6 +440,14 @@ const HighlightScreen = () => {
     outputRange: [0.9, 1],
   });
 
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.content, isTablet && styles.contentTablet]}>
@@ -309,7 +460,7 @@ const HighlightScreen = () => {
               <MaterialCommunityIcons name="chevron-down" size={16} color={COLORS.text} />
             </TouchableOpacity>
             <View style={styles.oddsSwitchContainer}>
-              <Text style={styles.oddsSwitchText}>Odds</Text>
+              <Text style={styles.oddsSwitchText}>Bet</Text>
               <Switch
                 trackColor={{ false: '#767577', true: COLORS.primary }}
                 thumbColor={oddsEnabled ? '#fff' : '#f4f3f4'}
@@ -319,7 +470,7 @@ const HighlightScreen = () => {
               />
             </View>
           </View>
-          <DateSelector 
+          <DateSelector
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
             liveAnimation={liveAnimation}
@@ -339,12 +490,16 @@ const HighlightScreen = () => {
             </View>
             {!matchesCollapsed && (
               <View style={styles.favouritesContent}>
-                <FlatList
-                  data={groupedMatches}
-                  renderItem={renderItem}
-                  keyExtractor={(item, index) => item.type === 'match' ? item.data.id : item.leagueName + index}
-                  scrollEnabled={false}
-                />
+                {groupedMatches.length > 0 ? (
+                  <FlatList
+                    data={groupedMatches}
+                    renderItem={renderItem}
+                    keyExtractor={(item, index) => item.type === 'match' ? item.data.id : (item.leagueName || item.title) + index}
+                    scrollEnabled={false}
+                  />
+                ) : (
+                  <Text style={styles.noMatchesText}>Data unavailable for this date</Text>
+                )}
               </View>
             )}
           </View>
@@ -396,6 +551,7 @@ const HighlightScreen = () => {
           </Animated.View>
         </Animated.View>
       </Modal>
+      <ForYouModal visible={forYouModalVisible} onClose={() => setForYouModalVisible(false)} />
     </SafeAreaView>
   );
 };
@@ -405,6 +561,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
     alignItems: 'center',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
   },
   content: {
     width: '100%',
@@ -640,6 +802,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  leagueIcon: {
+    width: 18,
+    height: 18,
+  },
   leagueTitle: {
     fontFamily: FONT_FAMILY.bold,
     fontSize: 14,
@@ -731,6 +897,19 @@ const styles = StyleSheet.create({
   popupButtonText: {
     color: '#fff',
     fontFamily: FONT_FAMILY.bold,
+  },
+  noMatchesText: {
+    color: COLORS.text,
+    textAlign: 'center',
+    paddingVertical: 20
+  },
+  statusHeader: {
+    fontFamily: FONT_FAMILY.bold,
+    fontSize: 16,
+    color: COLORS.text,
+    paddingVertical: SIZES.base,
+    paddingHorizontal: SIZES.padding,
+    backgroundColor: '#2c2c2c',
   },
 });
 
