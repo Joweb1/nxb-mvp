@@ -684,6 +684,10 @@ const HighlightScreen = () => {
           // Note: ID needs to be properly passed from data source for real fetching
           leagueId={selectedLeague.id || 39 /* Fallback to PL for demo if ID missing */} 
           onClose={() => setSelectedLeague(null)}
+          onTeamPress={(teamId) => {
+            setSelectedLeague(null);
+            setSelectedTeamId(teamId);
+          }}
         />
       )}
 

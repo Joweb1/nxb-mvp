@@ -46,3 +46,7 @@ export const getLeagueStandings = (season, leagueId) => {
 export const getTeamStatistics = (season, teamId, leagueId) => {
   return fetchFromAPI(`teams/statistics?season=${season}&team=${teamId}&league=${leagueId}`);
 };
+
+export const getTeamInfo = (teamId) => {
+  return fetchFromAPI(`teams?id=${teamId}`);
+};

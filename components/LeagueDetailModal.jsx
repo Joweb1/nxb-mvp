@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, FONT_FAMILY, SIZES } from '../constants/theme';
 import { getLeagueStandings } from '../services/api-football';
 
-const LeagueDetailModal = ({ visible, onClose, leagueName, leagueId, leagueLogo, leagueCountry }) => {
+const LeagueDetailModal = ({ visible, onClose, leagueName, leagueId, leagueLogo, leagueCountry, onTeamPress }) => {
   const [activeTab, setActiveTab] = useState('standings');
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,7 @@ const LeagueDetailModal = ({ visible, onClose, leagueName, leagueId, leagueLogo,
                <Text style={[styles.th, { width: 30 }]}>Pts</Text>
             </View>
             {standings.map((teamData) => (
-               <View key={teamData.team.id} style={styles.tableRow}>
+               <TouchableOpacity key={teamData.team.id} style={styles.tableRow} onPress={() => onTeamPress(teamData.team.id)}>
                   <Text style={[styles.td, { width: 30 }]}>{teamData.rank}</Text>
                   <View style={[styles.td, { flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
                      <Image source={{ uri: teamData.team.logo }} style={styles.miniLogo} />
@@ -66,7 +66,7 @@ const LeagueDetailModal = ({ visible, onClose, leagueName, leagueId, leagueLogo,
                   <Text style={[styles.td, { width: 30 }]}>{teamData.all.played}</Text>
                   <Text style={[styles.td, { width: 30 }]}>{teamData.goalsDiff}</Text>
                   <Text style={[styles.td, { width: 30, fontFamily: FONT_FAMILY.bold, color: COLORS.primary }]}>{teamData.points}</Text>
-               </View>
+               </TouchableOpacity>
             ))}
          </View>
        );
